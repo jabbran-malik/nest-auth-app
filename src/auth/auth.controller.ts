@@ -39,4 +39,16 @@ refresh(@Body('refreshToken') token: string) {
 logout(@CurrentUser() user:any){
     return this.authService.logout(user.sub)
 }
+
+@Post('forgot-password')
+forgot(@Body('email') email:string){
+    return this.authService.forgotpassword(email)
+}
+@Post('reset-password')
+reset(
+  @Body('token') token: string,
+  @Body('password') password: string,
+) {
+  return this.authService.resetPassword(token, password);
+}
 }

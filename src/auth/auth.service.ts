@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException ,NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RegisterDto } from './dto/register.dto';
@@ -6,12 +6,14 @@ import { User } from '../user/entity/user.entity';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
+import { MailService } from '../mail/mail.service';
 @Injectable()
 export class AuthService {
     constructor(
         @InjectRepository(User)
         private userRepo: Repository<User>,
         private jwtService: JwtService,
+        private mailService: MailService,
     ) { }
     async register(dto: RegisterDto) {
         const { email, password } = dto
@@ -69,11 +71,11 @@ export class AuthService {
         const refreshToken = this.jwtService.sign(payload, {
             expiresIn: '7d',
         });
-// refresh token hash
-const hashedRt=await bcrypt.hash(refreshToken,10)
-// save in db
-user.refreshToken=hashedRt;
-await this.userRepo.save(user)
+        // refresh token hash
+        const hashedRt = await bcrypt.hash(refreshToken, 10)
+        // save in db
+        user.refreshToken = hashedRt;
+        await this.userRepo.save(user)
         return {
             accessToken,
             refreshToken,
@@ -82,45 +84,74 @@ await this.userRepo.save(user)
 
     }
     // refresh Logic
-    async refresh(token:string){
-        try{
-            const payload=this.jwtService.verify(token,{
-                secret:'My secret Key',
+    async refresh(token: string) {
+        try {
+            const payload = this.jwtService.verify(token, {
+                secret: 'My secret key',
             })
-            const user= await this.userRepo.findOne({
-                where :{id:payload.sub}
+            const user = await this.userRepo.findOne({
+                where: { id: payload.sub }
             })
-            if(!user || !user.refreshToken){
+            if (!user || !user.refreshToken) {
                 throw new UnauthorizedException();
             }
-            const isMatch=await bcrypt.compare(token, user.refreshToken)
-            if(!isMatch){
+            const isMatch = await bcrypt.compare(token, user.refreshToken)
+            if (!isMatch) {
                 throw new UnauthorizedException();
             }
-            const newAccessToken= this.jwtService.sign(
+            const newAccessToken = this.jwtService.sign(
                 {
-                    sub:payload.sub,
-                    email:payload.email,
-                    role:payload.role,
+                    sub: payload.sub,
+                    email: payload.email,
+                    role: payload.role,
                 },
-                {expiresIn:'15m'}
+                { expiresIn: '15m' }
             )
             return {
-                accessToken:newAccessToken,
+                accessToken: newAccessToken,
             }
         }
-        catch(e)
-        {
+        catch (e) {
             throw new UnauthorizedException('Invalud Refresh Token')
         }
+        
     }
-  async logout(userId: number) {
-  await this.userRepo.update(userId, {
-    refreshToken: null,
+    async logout(userId: number) {
+        await this.userRepo.update(userId, {
+            refreshToken: null,
+        });
+
+        return {
+            message: 'Logged out successfully',
+        };
+    }
+    
+    async forgotpassword(email:string){
+        const user=await this.userRepo.findOne({where:{email}})
+        if(!user) return;
+        const token =this.jwtService.sign(
+            {sub:user.id},
+            {expiresIn:'15m'}
+        );
+        await this.mailService.sendResetEmail(email,token)
+        return {message:'Reset email send'}
+    }
+async resetPassword(token: string, newPassword: string) {
+  const payload = this.jwtService.verify(token);
+
+  const user = await this.userRepo.findOne({
+    where: { id: payload.sub },
   });
 
-  return {
-    message: 'Logged out successfully',
-  };
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+
+  user.password = hashed;
+  await this.userRepo.save(user);
+
+  return { message: 'Password updated' };
 }
 }

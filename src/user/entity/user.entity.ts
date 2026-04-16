@@ -10,8 +10,8 @@ export class User {
   password!: string;
   @Column({ default: "user" })
   role!: string
-  @Column({ nullable: true })
-  refreshToken!: null | string;
+  @Column({ type: 'text', nullable: true })
+  refreshToken!: string | null;
   @CreateDateColumn()
   createdAt!: Date;
 }
