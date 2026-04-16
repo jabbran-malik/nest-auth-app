@@ -3,19 +3,24 @@ import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailService {
-  private transporter = nodemailer.createTransport({
-    host: 'sandbox.smtp.mailtrap.io',
-    port: 2525,
-    auth: {
-      user: '7515905f843326',
-      pass: '16ef7a3f140c28',
-    },
-  });
+  private transporter;
+
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: 'sandbox.smtp.mailtrap.io',
+      port: 2525,
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+    });
+  }
 
   async sendResetEmail(email: string, token: string) {
     const resetLink = `http://localhost:3000/reset-password?token=${token}`;
 
     await this.transporter.sendMail({
+      from: '"Auth App" <no-reply@test.com>', // 🔥 important
       to: email,
       subject: 'Reset Password',
       html: `

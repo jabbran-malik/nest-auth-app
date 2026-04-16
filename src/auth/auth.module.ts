@@ -11,7 +11,8 @@ import { MailModule } from '../mail/mail.module';
     TypeOrmModule.forFeature([User]),
 
     JwtModule.register({
-      secret: 'My secret key',
+      secret: process.env.JWT_SECRET,
+
       signOptions: { expiresIn: '15m' },
     }),
     MailModule,

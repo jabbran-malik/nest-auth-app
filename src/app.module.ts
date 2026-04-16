@@ -2,29 +2,37 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserModule } from './user/user.module';
+import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
+import { ConfigModule } from '@nestjs/config';
+
 @Module({
   imports: [
-  TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: '127.0.0.1',
-      port: 5433,
-      username: 'postgres',
-      password: 'pak786@A',
-      database: 'nestdb',
-     
-      autoLoadEntities: true,
-      synchronize: true, // IMPORTANT (migration use karni hai)
+    // 🔥 STEP 1: Load ENV FIRST (VERY IMPORTANT)
+    ConfigModule.forRoot({
+      isGlobal: true,
     }),
-       UserModule,
-       AuthModule,
-       MailModule,
+
+    // 🔥 STEP 2: Database Config
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.DB_HOST as string,
+      port: Number(process.env.DB_PORT), // ✅ number conversion
+      username: process.env.DB_USER as string,
+      password: process.env.DB_PASS as string,
+      database: process.env.DB_NAME as string,
+      autoLoadEntities: true,
+      synchronize: true,
+    }),
+
+    // 🔥 Modules
+    UsersModule,
+    AuthModule,
+    MailModule,
   ],
+
   controllers: [AppController],
   providers: [AppService],
-  exports:[AppService]
-
 })
 export class AppModule {}

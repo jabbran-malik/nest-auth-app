@@ -87,7 +87,7 @@ export class AuthService {
     async refresh(token: string) {
         try {
             const payload = this.jwtService.verify(token, {
-                secret: 'My secret key',
+                secret: process.env.JWT_SECRET,
             })
             const user = await this.userRepo.findOne({
                 where: { id: payload.sub }
