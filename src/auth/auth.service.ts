@@ -84,38 +84,59 @@ export class AuthService {
 
     }
     // refresh Logic
-    async refresh(token: string) {
-        try {
-            const payload = this.jwtService.verify(token, {
-                secret: process.env.JWT_SECRET,
-            })
-            const user = await this.userRepo.findOne({
-                where: { id: payload.sub }
-            })
-            if (!user || !user.refreshToken) {
-                throw new UnauthorizedException();
-            }
-            const isMatch = await bcrypt.compare(token, user.refreshToken)
-            if (!isMatch) {
-                throw new UnauthorizedException();
-            }
-            const newAccessToken = this.jwtService.sign(
-                {
-                    sub: payload.sub,
-                    email: payload.email,
-                    role: payload.role,
-                },
-                { expiresIn: '15m' }
-            )
-            return {
-                accessToken: newAccessToken,
-            }
+ async refresh(token: string) {
+    try {
+        const payload = this.jwtService.verify(token, {
+            secret: process.env.JWT_SECRET,
+        });
+
+        const user = await this.userRepo.findOne({
+            where: { id: payload.sub },
+        });
+
+        if (!user || !user.refreshToken) {
+            throw new UnauthorizedException();
         }
-        catch (e) {
-            throw new UnauthorizedException('Invalud Refresh Token')
+
+        const isMatch = await bcrypt.compare(token, user.refreshToken);
+        if (!isMatch) {
+            throw new UnauthorizedException();
         }
-        
+
+        // 🔥 NEW ACCESS TOKEN
+        const newAccessToken = this.jwtService.sign(
+            {
+                sub: payload.sub,
+                email: payload.email,
+                role: payload.role,
+            },
+            { expiresIn: '15m' }
+        );
+
+        // 🔥 NEW REFRESH TOKEN (IMPORTANT)
+        const newRefreshToken = this.jwtService.sign(
+            {
+                sub: payload.sub,
+                email: payload.email,
+                role: payload.role,
+            },
+            { expiresIn: '7d' }
+        );
+
+        // 🔥 HASH & REPLACE (rotation)
+        const hashedRt = await bcrypt.hash(newRefreshToken, 10);
+        user.refreshToken = hashedRt;
+        await this.userRepo.save(user);
+
+        return {
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+        };
+
+    } catch (e) {
+        throw new UnauthorizedException('Invalid Refresh Token');
     }
+}
     async logout(userId: number) {
         await this.userRepo.update(userId, {
             refreshToken: null,

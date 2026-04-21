@@ -2,19 +2,19 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
 import { ConfigModule } from '@nestjs/config';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
-    // 🔥 STEP 1: Load ENV FIRST (VERY IMPORTANT)
+    //  STEP 1: Load ENV FIRST (VERY IMPORTANT)
     ConfigModule.forRoot({
       isGlobal: true,
     }),
 
-    // 🔥 STEP 2: Database Config
+    // STEP 2: Database Config
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST as string,
@@ -26,8 +26,8 @@ import { ConfigModule } from '@nestjs/config';
       synchronize: true,
     }),
 
-    // 🔥 Modules
-    UsersModule,
+    // Modules
+    UserModule,
     AuthModule,
     MailModule,
   ],
