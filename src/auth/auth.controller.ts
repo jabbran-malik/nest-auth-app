@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Post,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -12,6 +14,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/role.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import type { Response } from 'express';
+
 
 // 🔹 Type for current user
 interface JwtUser {
@@ -22,7 +26,7 @@ interface JwtUser {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   // 🔹 Register
   @Post('register')
@@ -30,10 +34,22 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
-  // 🔹 Login
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req) {
+    const { accessToken, refreshToken } =
+      await this.authService.login(dto);
+
+    req.res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+    });
+
+    req.res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+    });
+
+    return { message: 'Login successful' };
   }
 
   // 🔹 Current User
@@ -49,17 +65,43 @@ export class AuthController {
 
   // 🔹 Refresh Token
   @Post('refresh')
-  refresh(@Body('refreshToken') token: string) {
-    return this.authService.refresh(token);
+  async refresh(@Req() req, @Res() res: Response) {
+    const token = req.cookies?.refreshToken;
+
+    const { accessToken, refreshToken } =
+      await this.authService.refresh(token);
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false,
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false,
+    });
+
+    return res.json({ message: 'Refreshed' });
   }
 
   // 🔹 Logout
-  @Post('logout')
-  @UseGuards(JwtAuthGuard)
-  logout(@CurrentUser() user: JwtUser) {
-    return this.authService.logout(user.sub);
-  }
 
+  @Post('logout')
+  logout(@Req() req) {
+    req.res.clearCookie('accessToken', {
+      httpOnly: true,
+      sameSite: 'lax',
+    });
+
+    req.res.clearCookie('refreshToken', {
+      httpOnly: true,
+      sameSite: 'lax',
+    });
+
+    return { message: 'Logged out successfully' };
+  }
   // 🔹 Forgot Password
   @Post('forgot-password')
   forgotPassword(@Body('email') email: string) {
@@ -95,3 +137,4 @@ export class AuthController {
     };
   }
 }
+// acess token ko validate { decode } user id logout ma bhjeni hy
